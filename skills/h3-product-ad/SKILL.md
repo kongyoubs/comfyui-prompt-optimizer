@@ -1,9 +1,7 @@
 ---
-name: minimalist-product-ad-generator
+name: H3 极简产品广告
+type: video
 description: |
-  上传一张产品图，就能按 Apple 风做一条高级产品广告短片。适合电商商品、小品牌新品、潮玩、食品、数码配件等产品展示：我会先帮你确认时长、比例和风格，再提炼产品卖点、生成英文广告文案、制作产品锚定图、规划文字卡点分镜，并生成一条干净、有节奏、产品质感突出的短片。不适合 KOC 口播、普通剪辑或复杂屏幕演示。
-metadata:
-  trigger-words: [minimalist product ad, premium product ad, minimalist product film, 极简产品广告, 高质感产品广告, 产品广告片, 电商产品视频, 新品发布广告]
 ---
 
 # 极简产品广告生成器

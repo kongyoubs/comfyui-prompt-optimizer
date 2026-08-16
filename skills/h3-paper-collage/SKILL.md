@@ -1,8 +1,7 @@
 ---
-name: paper-collage-explainer-generator
+name: H3 纸拼贴讲解动画
+type: video
 description: |
-  面向内容创作者、教育讲解者和社交视频编辑，用触感纸拼贴语言表现口播句、知识点、观点或抽象主题。用户提供短文案、故事节点或核心概念，也可补充画幅、时长、色调和音频需求。Skill 会提炼含义与视觉隐喻，制定制作方案和分镜，生成并确认半调纸拼贴静帧，再制作带纸片滑入、弹入、轻敲、压平和摩擦声的停格动画片段，并可按需合成完整讲解视频。默认保留拼贴音效，不主动添加 BGM、旁白和字幕。适合知识讲解、观点表达、故事配画和社交 B-roll，不适合真人口播广告、精确可编辑图层、复杂文字排版或仅输出提示词。
-trigger-words: [paper collage explainer, paper-collage animation, halftone collage, collage explainer, 纸拼贴, 拼贴科普, 定格拼贴, 拼贴动画]
 ---
 
 # 纸拼贴讲解动画生成器

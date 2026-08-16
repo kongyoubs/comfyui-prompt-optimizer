@@ -1,5 +1,6 @@
 ---
-name: music-caption-rewriter
+name: Music3 音乐描述重写
+type: music
 description: Turn a brief music description and optional tagged lyrics into a professional MiniMax Music 3 structured caption with Global Metadata, Vocal Details, and a section-aware Arrangement. Use when users ask to enhance a music-generation prompt, preserve lyric-section directives, retrieve a similar style from bundled templates, fuse styles, or produce JSON or JSONL caption output.
 ---
 

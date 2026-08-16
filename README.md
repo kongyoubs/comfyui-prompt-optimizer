@@ -9,31 +9,59 @@
 
 ## 特性
 
-- 🖼️ **生图优化**：FLUX 系自然语言描述 + 无负面词；SDXL/SD3 系 tag 风格 + 负面提示词
-- 🎬 **生视频优化**：补运动描述、镜头语言（景别/运镜）、时间节奏、光线氛围
-- 🎵 **音乐优化**：曲风/情绪/BPM/乐器/结构/人声全覆盖
-- 👁️ **图像反推**：VLM 读取图片 → 详细文字描述（可反向用于生图）
 - 🎬 **MiniMax H3 官方视频 skill**：内置 13 个官方视频预设（T2VA/I2VA/FL2VA/L2VA/Ref2VA + 8 个风格化短片），下拉即选
 - 🎵 **MiniMax Music3 官方音乐 skill**：内置音乐描述重写规则（含风格路由）
+- 📂 **skills 目录自定义**：`skills/` 下每个文件夹是一个 skill，新增 skill 零代码改动
 - 🌐 **任意中转站**：`providers.json` 配置多个 API，节点内下拉切换
 - 🌍 **中英可选**：中文 / 英文 / 中英双输出
 - 🧩 **可插拔适配器**：加新模型类型 = 在 `core/adapters/` 加一个文件
 
-## 官方预设（MiniMax）
+## Skill 目录（可扩展）
 
-节点 `official` 参数提供 14 个内置官方预设，来源 [MiniMax-H3](https://github.com/MiniMax-AI/MiniMax-H3) 和 [MiniMax-Music3](https://github.com/MiniMax-AI/MiniMax-Music3)：
+节点的 `skill` 下拉自动扫描插件根目录下的 `skills/` 文件夹，每个子文件夹是一个 skill。内置 14 个 MiniMax 官方 skill（[MiniMax-H3](https://github.com/MiniMax-AI/MiniMax-H3) 视频 + [MiniMax-Music3](https://github.com/MiniMax-AI/MiniMax-Music3) 音乐）。
 
-| 预设 | 说明 |
-|---|---|
-| H3 文生视频 (T2VA) | 纯文本生成完整视听时间线 |
-| H3 首帧生视频 (I2VA) | 从首帧图向后发展 |
-| H3 首尾帧生视频 (FL2VA) | 描述首尾帧之间的连续路径 |
-| H3 尾帧生视频 (L2VA) | 推断开头并收敛到尾帧 |
-| H3 全参考生视频 (Ref2VA) | 六段式全参考重写 |
-| H3 3D动画短片 / 品牌宣传片 / 双人游戏开场 / 手绘实拍 / 极简产品广告 / MV字幕 / 纸拼贴 / 纸艺定格 | 8 个风格化视频生成 skill |
-| Music3 音乐描述重写 | 结构化音乐 caption（Global Metadata / Vocal / Arrangement） |
+### 目录规范
 
-选中官方预设后，节点会把对应 skill 的完整规则注入 system prompt，生成符合 MiniMax 官方格式的提示词。
+```
+skills/
+    <skill-id>/                # skill 唯一标识（文件夹名）
+        SKILL.md               # 必需：frontmatter 声明 name / type / description
+        references/            # 可选：额外的规则文件（.md/.txt 按文件名拼接）
+```
+
+`SKILL.md` 格式：
+
+```markdown
+---
+name: 我的生图风格
+type: image        # image / video / music / caption
+description: 用这种风格优化生图提示词
+---
+（正文规则，会被注入 LLM 的 system prompt……）
+```
+
+`type` 决定走哪个适配器（image/video/music/caption）。选中 skill 后，节点会把 SKILL.md 正文 + references 里所有规则注入 system prompt，生成符合该规范的提示词。
+
+### 内置 skill 一览
+
+| 预设 | 类型 | 说明 |
+|---|---|---|
+| H3 文生视频 (T2VA) | video | 纯文本生成完整视听时间线 |
+| H3 首帧生视频 (I2VA) | video | 从首帧图向后发展 |
+| H3 首尾帧生视频 (FL2VA) | video | 描述首尾帧之间的连续路径 |
+| H3 尾帧生视频 (L2VA) | video | 推断开头并收敛到尾帧 |
+| H3 全参考生视频 (Ref2VA) | video | 六段式全参考重写 |
+| H3 3D动画短片 / 品牌宣传片 / 双人游戏开场 / 手绘实拍 / 极简产品广告 / MV字幕 / 纸拼贴 / 纸艺定格 | video | 8 个风格化视频生成 skill |
+| Music3 音乐描述重写 | music | 结构化音乐 caption（Global Metadata / Vocal / Arrangement） |
+
+### 新增自定义 skill
+
+只需两步：
+
+1. 在 `skills/` 下建一个文件夹，如 `skills/my-style/`
+2. 写一个 `SKILL.md`（含上面的 frontmatter）
+
+重启 ComfyUI，节点的 `skill` 下拉就会出现你的 skill，无需改任何代码。
 
 ## 安装
 

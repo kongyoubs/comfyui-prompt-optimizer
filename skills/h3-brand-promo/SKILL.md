@@ -1,14 +1,7 @@
 ---
-name: brand-promo-video-generator
+name: H3 品牌宣传片
+type: video
 description: 面向需要为品牌、产品、网站、App、小店或个人项目制作宣传内容的运营与创作者。用户需提供 LOGO、产品图、界面截图、官网链接或其他可核验素材，并确认时长、画幅、受众和推广重点。Skill 会整理品牌事实与素材来源，选择叙事方向，规划精确节拍和镜头，生成所需图像、视频、旁白或音乐，并完成合成与交付前检查。最终输出一条突出产品功能、使用场景和行动号召的品牌宣传短片。适用于新品发布、官网展示和社交媒体推广，不适用于缺少授权素材时仿造真实品牌标识、虚构产品功能或制作长篇剧情影片。
-allowed-tools:
-- webfetch
-- hub_image_search
-- hub_analyse_media
-- hub_canvas_get_node
-- task
-- hub_audio_meta
-- hub_canvas_group_recent_outputs
 ---
 
 # 品牌宣传短片生成器
