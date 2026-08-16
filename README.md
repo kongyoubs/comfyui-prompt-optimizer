@@ -147,5 +147,3 @@ comfyui-prompt-optimizer/
 - **提示缺少 provider**：检查 `providers.json` 是否创建、`base_url` 是否以 `/v1` 结尾。
 - **中文乱码**：确保插件文件保存为 UTF-8（本项目全部 UTF-8）。
 - **慢**：反推+优化一次会调用两次 API；拆开用 `mode` 单选可减少等待。
-
-> 测试：SSH 推送通道验证（2026-08-16 15:31）
