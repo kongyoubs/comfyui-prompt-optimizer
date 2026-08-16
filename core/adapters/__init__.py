@@ -4,6 +4,7 @@ from .image import ImageAdapter
 from .video import VideoAdapter
 from .music import MusicAdapter
 from .caption import CaptionAdapter
+from .edit import EditAdapter
 
 #: 适配器注册表：id -> 适配器类
 ADAPTERS = {
@@ -11,6 +12,7 @@ ADAPTERS = {
     "video": VideoAdapter,
     "music": MusicAdapter,
     "caption": CaptionAdapter,
+    "edit": EditAdapter,
 }
 
 #: 节点下拉显示名 -> id
@@ -19,6 +21,7 @@ ADAPTER_CHOICES = [
     ("video", "生视频优化"),
     ("music", "音乐优化"),
     ("caption", "图像反推"),
+    ("edit", "图像编辑"),
 ]
 
 #: 自动识别关键字（文本出现时优先匹配的适配器）

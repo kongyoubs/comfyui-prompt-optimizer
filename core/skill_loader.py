@@ -25,7 +25,7 @@ import re
 _SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills")
 
 # 合法的 type 值（对应适配器）
-_VALID_TYPES = {"image", "video", "music", "caption"}
+_VALID_TYPES = {"image", "video", "music", "caption", "edit"}
 
 
 def _parse_frontmatter(text):

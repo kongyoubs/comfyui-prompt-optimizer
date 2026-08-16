@@ -108,7 +108,11 @@ class PromptOptimizerNode:
 
         # ---- 是否需要反推（caption 模式 或 both 模式或 adapter=caption）----
         need_caption = mode in ("caption", "both") or adapter_id == "caption"
-        need_optimize = mode in ("optimize", "both") or adapter_id != "caption"
+        need_optimize = mode in ("optimize", "both") or adapter_id not in ("caption",)
+
+        # 编辑模式：需要图片输入
+        if adapter_id == "edit" and not data_urls:
+            raise RuntimeError("图像编辑模式需要连接 image 输入（IMAGE 张量）")
 
         caption = ""
         positive = ""
@@ -138,11 +142,13 @@ class PromptOptimizerNode:
             # 注入 skill 规则：把 skill 内容追加到 system prompt
             if skill_rules:
                 sys_p = f"{sys_p}\n\n【必须遵循以下 skill 规则生成提示词】\n\n{skill_rules}"
+            # 编辑/反推类需要 vision 模型看图片，其余用 chat 模型
+            use_model_type = "vision" if adapter_id in ("edit",) else "chat"
             result = api_client.chat_completion(
                 provider,
                 [{"role": "system", "content": sys_p},
                  {"role": "user", "content": user_content}],
-                model_type="chat",
+                model_type=use_model_type,
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
