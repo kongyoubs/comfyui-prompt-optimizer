@@ -140,12 +140,27 @@ class PromptOptimizerNode:
 
 
 def _split_positive_negative(result, adapter_id, language):
-    """从 LLM 输出中拆出正向/负面提示词。"""
+    """从 LLM 输出中拆出正向/负面提示词。
+    优先解析 JSON（{"positive":..., "negative":...}），回退到文本标记解析。
+    """
     result = str(result or "").strip()
     positive = result
     negative = ""
 
-    # 查找【负面提示词】标记（中英文都兼容）
+    # ---- 1. 尝试 JSON 解析 ----
+    parsed = _try_parse_json(result)
+    if parsed:
+        pos = parsed.get("positive") or parsed.get("positive_prompt") or parsed.get("prompt")
+        neg = parsed.get("negative") or parsed.get("negative_prompt")
+        if pos is not None and isinstance(pos, str) and pos.strip():
+            positive = pos.strip()
+            negative = (neg or "").strip()
+            # 负面为 empty/none 时置空
+            if negative.lower() in ("empty", "none", "无", "无负面提示词"):
+                negative = ""
+            return positive, negative
+
+    # ---- 2. 文本标记解析（回退）----
     for marker in ("【负面提示词】", "[Negative Prompt]", "负面提示词：", "Negative:"):
         idx = result.find(marker)
         if idx > 0:
@@ -164,6 +179,30 @@ def _split_positive_negative(result, adapter_id, language):
         negative = ""
 
     return positive, negative
+
+
+def _try_parse_json(text):
+    """尝试把文本解析为 JSON dict；支持被 ```json 代码块包裹的情况。"""
+    import json
+    import re
+    if not text:
+        return None
+    s = text.strip()
+    # 去除 ```json ... ``` 代码块
+    m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", s, re.DOTALL)
+    if m:
+        s = m.group(1)
+    else:
+        # 提取第一个 { ... } 对象
+        start = s.find("{")
+        end = s.rfind("}")
+        if start >= 0 and end > start:
+            s = s[start:end + 1]
+    try:
+        obj = json.loads(s)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
 
 
 NODE_CLASS_MAPPINGS = {
