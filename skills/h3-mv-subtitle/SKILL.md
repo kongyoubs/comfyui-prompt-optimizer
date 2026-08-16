@@ -1,7 +1,7 @@
 ---
 name: H3 音乐MV字幕
 type: video
-description: |
+description: 音乐美学 MV 提示词：多镜头拼接、歌词与文字包装、鼓点硬切、镜头语言统一
 ---
 
 # 音乐美学MV

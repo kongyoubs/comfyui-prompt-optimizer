@@ -1,0 +1,9 @@
+{
+  "name": "comfyui-prompt-optimizer",
+  "description": "一个节点搞定生图/生视频/音乐提示词优化 + 图像反推 + 图像编辑。支持 OpenAI 兼容 API + 34 个内置 skill。",
+  "version": "1.0.0",
+  "author": "DeepSeek Harness / ComfyUI 用户",
+  "tags": ["prompt", "optimization", "comfyui", "image", "video", "music", "caption", "edit"],
+  "node_version": "1.0.0",
+  "repository": "https://github.com/kongyoubs/comfyui-prompt-optimizer"
+}

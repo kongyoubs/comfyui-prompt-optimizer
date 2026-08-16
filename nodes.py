@@ -90,11 +90,13 @@ class PromptOptimizerNode:
 
         # skill：若选中，覆盖 adapter_id 为 skill 声明的类型，并准备 skill 规则
         skill_rules = ""
+        skill_type = ""
         if skill_id != "none":
             sk = skill_loader.get_skill(skill_id)
             if sk:
                 adapter_id = sk["type"]
                 skill_rules = sk["rules"]
+                skill_type = sk["type"]
 
         # ---- 图片转 data URI（供反推）----
         data_urls = []
@@ -108,7 +110,7 @@ class PromptOptimizerNode:
 
         # ---- 是否需要反推（caption 模式 或 both 模式或 adapter=caption）----
         need_caption = mode in ("caption", "both") or adapter_id == "caption"
-        need_optimize = mode in ("optimize", "both") or adapter_id not in ("caption",)
+        need_optimize = bool(text) and (mode in ("optimize", "both") or adapter_id not in ("caption",))
 
         # 编辑模式：需要图片输入
         if adapter_id == "edit" and not data_urls:
@@ -125,6 +127,9 @@ class PromptOptimizerNode:
                 raise RuntimeError("反推模式需要连接 image 输入（IMAGE 张量）")
             cap_adapter = get_adapter("caption", language=language)
             sys_p, user_content = cap_adapter.build_messages(text, target_model, data_urls)
+            # caption 类型 skill 的规则注入到反推分支（否则在纯 caption 模式下会被忽略）
+            if skill_type == "caption" and skill_rules:
+                sys_p = f"{sys_p}\n\n【必须遵循以下 skill 规则生成描述】\n\n{skill_rules}"
             caption = api_client.chat_completion(
                 provider,
                 [{"role": "system", "content": sys_p},

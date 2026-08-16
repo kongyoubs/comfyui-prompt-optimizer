@@ -1,7 +1,7 @@
 ---
 name: H3 极简产品广告
 type: video
-description: |
+description: 苹果风极简产品广告流程：产品事实摘要 → 三张独立锚定照片 → 精确节拍分镜表 → H3 原生音频成片
 ---
 
 # 极简产品广告生成器

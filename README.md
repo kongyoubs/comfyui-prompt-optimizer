@@ -28,7 +28,7 @@
 ComfyUI/custom_nodes/comfyui-prompt-optimizer/
 ```
 
-2. 复制 `providers.example.json` 为 `providers.json`，填入你的 API 配置：
+2. 配置 API：若目录下已有 `providers.json`（随包提供的占位模板），直接编辑填入你的 key 即可；若没有，复制 `providers.example.json` 为 `providers.json`。注意 `providers.json` 已被 `.gitignore` 忽略，不会随代码提交，避免密钥泄露。
 
 ```json
 {

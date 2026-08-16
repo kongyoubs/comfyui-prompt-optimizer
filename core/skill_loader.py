@@ -68,8 +68,11 @@ def scan_skills():
         skill_dir = os.path.join(_SKILLS_DIR, entry)
         if not os.path.isdir(skill_dir):
             continue
+
         skill_md = os.path.join(skill_dir, "SKILL.md")
         if not os.path.exists(skill_md):
+            # 允许没有 SKILL.md 的目录（比如只放 references/ 的 h3-fl2va 等）
+            # 但如果没有 SKILL.md 就跳过（避免扫描出没有 frontmatter 的）
             continue
 
         fm, body = _parse_frontmatter(_read_text(skill_md))
@@ -86,7 +89,10 @@ def scan_skills():
                 if os.path.isfile(ref_path) and ref_name.lower().endswith((".md", ".txt")):
                     content = _read_text(ref_path)
                     if content:
-                        chunks.append(content)
+                        # 参考文件可能自带 frontmatter（如 references/SKILL.md），剥离头部只保留正文
+                        _, ref_body = _parse_frontmatter(content)
+                        if ref_body:
+                            chunks.append(ref_body)
 
         rules = "\n\n".join(c for c in chunks if c)
         if not rules:
