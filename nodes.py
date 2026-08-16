@@ -11,6 +11,7 @@
     target_model  可选：目标生图/视频/音乐模型名
     image         可选：IMAGE 张量（反推或多图参考，取前 N 张）
     max_images    最多取前几张图（1-8）
+    official      官方预设：MiniMax H3 视频 / Music3 音乐（下拉选择）
     provider      选择 API 中转站（providers.json 里的 name）
     language      zh / en / both（优化结果语言）
     max_tokens    输出长度上限
@@ -26,6 +27,7 @@ import folder_paths  # noqa: F401  （确保 ComfyUI 环境变量已加载）
 
 from .core import client as api_client
 from .core import image_utils
+from .core import official as official_skill
 from .core.adapters import get_adapter, auto_detect_adapter, ADAPTER_CHOICES
 
 
@@ -37,6 +39,8 @@ LANGUAGE_CHOICES = [
     ("en", "英文"),
     ("both", "中英双输出"),
 ]
+# 官方预设下拉：无 + MiniMax 官方 skill
+OFFICIAL_CHOICES = [("none", "不使用官方预设")] + official_skill.official_choices()
 
 
 class PromptOptimizerNode:
@@ -59,6 +63,7 @@ class PromptOptimizerNode:
                 }),
                 "image": ("IMAGE",),
                 "max_images": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1}),
+                "official": (OFFICIAL_CHOICES, {"default": "none"}),
                 "provider": (api_client.provider_names(), {"default": api_client.provider_names()[0] if api_client.provider_names() else ""}),
                 "language": (LANGUAGE_CHOICES, {"default": "zh"}),
                 "max_tokens": ("INT", {"default": 2048, "min": 256, "max": 8192, "step": 256}),
@@ -72,15 +77,24 @@ class PromptOptimizerNode:
     CATEGORY = "Prompt Optimizer"
 
     def process(self, text, mode="optimize", model_type="auto", target_model="",
-                image=None, max_images=1, provider="", language="zh",
+                image=None, max_images=1, official="none", provider="", language="zh",
                 max_tokens=2048, temperature=0.7):
         text = str(text or "").strip()
         mode = str(mode or "optimize")
+        official_id = str(official or "none")
 
         # ---- 确定适配器类型 ----
         adapter_id = str(model_type or "auto")
         if adapter_id == "auto":
             adapter_id = auto_detect_adapter(text) or "image"
+
+        # 官方预设：若选中，覆盖 adapter_id 为对应类型，并准备官方规则
+        official_rules = ""
+        if official_id != "none":
+            preset = official_skill.get_preset(official_id)
+            if preset:
+                _label, ptype, official_rules = preset
+                adapter_id = ptype  # video / music
 
         # ---- 图片转 data URI（供反推）----
         data_urls = []
@@ -121,6 +135,9 @@ class PromptOptimizerNode:
         if need_optimize:
             adapter = get_adapter(adapter_id, language=language)
             sys_p, user_content = adapter.build_messages(text, target_model, data_urls)
+            # 注入官方规则：把官方 skill 内容追加到 system prompt
+            if official_rules:
+                sys_p = f"{sys_p}\n\n【必须遵循以下官方规则生成提示词】\n\n{official_rules}"
             result = api_client.chat_completion(
                 provider,
                 [{"role": "system", "content": sys_p},
