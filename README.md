@@ -59,6 +59,30 @@ ComfyUI/custom_nodes/comfyui-prompt-optimizer/
 
 3. 重启 ComfyUI。依赖：`requests` + `Pillow`（ComfyUI 已自带）。
 
+### 🎛️ 方式二：在节点界面直接配置（无需手改 JSON）
+
+节点上新增了一组可选输入，直接在 ComfyUI 界面填写并**持久化保存到 `providers.json`**，重启不丢失：
+
+| 输入 | 说明 |
+|---|---|
+| `provider_action` | 动作：`保存配置到文件` / `删除所选 provider` / `重载 providers.json` |
+| `provider_name` | 要保存/删除的 provider 名称 |
+| `base_url` | API 地址（以 `/v1` 结尾） |
+| `api_key` | API 密钥（保存后写入文件） |
+| `chat_model` | 普通对话模型名 |
+| `vision_model` | 视觉模型名（看图用，留空 = chat_model） |
+
+**保存流程**：
+
+1. 填好 `provider_name`、`base_url`、`api_key`、`chat_model`（可选 `vision_model`）
+2. 把 `provider_action` 切到 **保存配置到文件**
+3. 点执行（Queue）—— 配置即写入 `providers.json`，`raw` 输出会显示操作结果
+4. `provider` 下拉使用动态加载（函数引用），刷新页面后新 provider 即出现在下拉中
+
+**删除流程**：`provider_name` 填要删的名字（或在下拉选中它）→ `provider_action` 选 **删除所选 provider** → 执行。
+
+> 注意：节点上填写的 `api_key` 会随工作流 JSON 一起保存，注意别把含密钥的工作流发给别人；`providers.json` 已被 `.gitignore` 忽略。
+
 ## 使用
 
 节点分类：**Prompt Optimizer** → **提示词优化（生图/视频/音乐/反推/编辑）**
@@ -74,18 +98,42 @@ ComfyUI/custom_nodes/comfyui-prompt-optimizer/
 | `image` | 可选 IMAGE 输入（反推/编辑用，最多 8 张） |
 | `max_images` | 取前几张图（1-8） |
 | `skill` | 选择 `skills/` 目录下的 skill（34 个内置，可自定义扩展） |
-| `provider` | 选哪个 API 中转站 |
+| `provider` | 选哪个 API 中转站（动态下拉，新增配置后刷新页面即出现） |
+| `provider_action` | 节点内保存/删除/重载 provider 配置（写回 `providers.json`） |
+| `provider_name` / `base_url` / `api_key` / `chat_model` / `vision_model` | 节点界面直填的 provider 配置字段 |
 | `language` | 中文 / 英文 / 中英双输出 |
 | `max_tokens` / `temperature` | 采样参数 |
 
 ### 输出
 
-| 输出 | 说明 |
-|---|---|
-| `positive` | 优化后的正向提示词 / 编辑提示词 / 反推描述 |
-| `negative` | 负面提示词（仅生图适配器；无则空） |
-| `caption` | 反推描述（仅反推相关模式） |
-| `raw` | LLM 原始返回（调试用） |
+节点有 **4 个输出**，全部是 STRING 类型：
+
+| 输出 | 类型 | 含义 | 何时有值 |
+|---|---|---|---|
+| `positive` | STRING | **正向提示词**：优化后的主提示词（生图/生视频/音乐）；反推模式下=图片描述；编辑模式下=编辑指令 | 几乎总是有值（空输入时原样返回 `text`） |
+| `negative` | STRING | **负面提示词**：告诉生成模型"不要出现什么" | **仅生图（image）模式**有值；视频/音乐/反推/编辑模式下为空 |
+| `caption` | STRING | **图片反推描述**：VLM 看图后生成的文字描述 | 仅 `mode=caption` / `mode=both`（或选了 caption 类型 skill）时有值 |
+| `raw` | STRING | **LLM 原始返回**：包含【反推】【优化】【配置】各段完整原文 | 每次调用都有；排错/调试看它 |
+
+#### 各模式下四个输出的取值（对照表）
+
+| 模式 (mode / model_type) | positive | negative | caption | raw 内容 |
+|---|---|---|---|---|
+| `optimize` + `image` | 优化后的正向提示词 | 负面提示词（SD 系；FLUX 系为空） | 空 | 【优化】 |
+| `optimize` + `video` | 优化后的视频提示词 | 空 | 空 | 【优化】 |
+| `optimize` + `music` | 优化后的音乐描述 | 空 | 空 | 【优化】 |
+| `caption` | 图片反推描述（与 caption 相同） | 空 | 图片反推描述 | 【反推】 |
+| `both` | 基于图片描述**再优化**的提示词 | 视适配器而定 | 反推描述 | 【反推】+【优化】 |
+| `optimize` + `edit` | 编辑提示词（发给图生图编辑模型） | 空 | 空 | 【优化】 |
+| 空 text + 任意 | 原样返回空（无输出） | 空 | 空 | （空） |
+| 执行了 provider 配置动作 | — | — | — | 前置追加【配置】日志 |
+
+#### 接线建议
+
+- `positive` → 文生图/生视频/音乐节点的 **CLIP Text Encode / 提示词输入（正面）**
+- `negative` → 文生图节点的 **CLIP Text Encode（负面）**（仅 SD 系需要；FLUX 系不接）
+- `caption` → 需要"图片描述文本"的场合（如把反推结果喂给文生图复刻风格）
+- `raw` → 不接下游节点，作调试视图；想看清 LLM 到底输出了什么、或确认 provider 配置是否保存成功时查看
 
 ### 典型工作流
 

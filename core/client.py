@@ -71,6 +71,80 @@ def load_providers(force=False):
         return data
 
 
+def _write_providers(data):
+    """把 providers 数据写回 providers.json（UTF-8，保留中文），并清除缓存。"""
+    global _cache_providers
+    path = get_providers_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    _cache_providers = None
+
+
+def save_provider(name, base_url, api_key, chat_model="", vision_model=""):
+    """
+    新增或更新一个 provider 并持久化到 providers.json。
+    同名 provider 覆盖更新；否则追加。保存后自动清除缓存。
+
+    返回: (provider_name, 操作说明)
+    """
+    name = str(name or "").strip()
+    base_url = str(base_url or "").strip()
+    api_key = str(api_key or "").strip()
+    chat_model = str(chat_model or "").strip()
+    vision_model = str(vision_model or "").strip()
+
+    if not name:
+        raise RuntimeError("保存 provider 需要填写 provider_name")
+    if not base_url:
+        raise RuntimeError("base_url 不能为空（例如 https://api.deepseek.com/v1）")
+    if not api_key:
+        raise RuntimeError("api_key 不能为空")
+    if not chat_model:
+        chat_model = "gpt-4o"
+    if not vision_model:
+        vision_model = chat_model
+
+    data = load_providers(force=True)
+    providers = data.setdefault("providers", [])
+    existing = None
+    for p in providers:
+        if p.get("name") == name:
+            existing = p
+            break
+
+    entry = {
+        "name": name,
+        "base_url": base_url,
+        "api_key": api_key,
+        "chat_model": chat_model,
+        "vision_model": vision_model,
+    }
+    if existing:
+        existing.update(entry)
+        action = f"已更新 provider「{name}」（{base_url}）"
+    else:
+        providers.append(entry)
+        action = f"已新增 provider「{name}」（{base_url}）"
+
+    _write_providers(data)
+    return name, action
+
+
+def delete_provider(name):
+    """从 providers.json 删除指定 provider 并持久化。返回操作说明。"""
+    name = str(name or "").strip()
+    if not name:
+        raise RuntimeError("删除 provider 需要指定 provider_name")
+    data = load_providers(force=True)
+    providers = data.get("providers", [])
+    before = len(providers)
+    data["providers"] = [p for p in providers if p.get("name") != name]
+    if len(data["providers"]) == before:
+        raise RuntimeError(f"没有找到要删除的 provider「{name}」")
+    _write_providers(data)
+    return f"已删除 provider「{name}」"
+
+
 def provider_names():
     """返回所有可用的 provider 名称列表。"""
     data = load_providers()

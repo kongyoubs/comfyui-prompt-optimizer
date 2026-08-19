@@ -18,10 +18,15 @@
     temperature   采样温度
 
 输出:
-    positive      优化后的正向提示词（caption 模式=反推描述）
-    negative      负面提示词（仅 image 适配器产出；无则 empty）
-    caption       反推描述（仅反推相关模式产出）
-    raw           LLM 原始返回
+    positive      主提示词输出：
+                    - 优化模式：优化后的正向提示词（生图/视频/音乐）
+                    - 反推模式：图片反推描述（与 caption 相同）
+                    - 编辑模式：图生图编辑提示词
+                    - 空输入：原样返回 text
+    negative      负面提示词（仅 image 适配器产出；SD 系用，FLUX 系为空；其余模式为空）
+    caption       图片反推描述（仅 mode=caption/both 或 caption 类型 skill 时有值）
+    raw           LLM 原始返回全文，含【反推】【优化】各段；
+                  执行 provider 配置动作时前置追加【配置】日志（排错用）
 """
 import folder_paths  # noqa: F401  （确保 ComfyUI 环境变量已加载）
 
@@ -41,6 +46,13 @@ LANGUAGE_CHOICES = [
 ]
 # skill 下拉：无 + 扫描 skills/ 目录得到的全部 skill
 SKILL_CHOICES = [("none", "不使用 skill")] + skill_loader.skill_choices()
+# provider 配置动作下拉（持久化到 providers.json）
+PROVIDER_ACTION_CHOICES = [
+    ("none", "无操作"),
+    ("save", "保存配置到文件"),
+    ("delete", "删除所选 provider"),
+    ("reload", "重载 providers.json"),
+]
 
 
 class PromptOptimizerNode:
@@ -64,10 +76,35 @@ class PromptOptimizerNode:
                 "image": ("IMAGE",),
                 "max_images": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1}),
                 "skill": (SKILL_CHOICES, {"default": "none"}),
-                "provider": (api_client.provider_names(), {"default": api_client.provider_names()[0] if api_client.provider_names() else ""}),
+                "provider": (api_client.provider_names(), {
+                    "default": api_client.provider_names()[0] if api_client.provider_names() else ""
+                }),
                 "language": (LANGUAGE_CHOICES, {"default": "zh"}),
                 "max_tokens": ("INT", {"default": 2048, "min": 256, "max": 8192, "step": 256}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.1}),
+                # ---- Provider 配置（节点界面直填，持久化到 providers.json）----
+                "provider_action": (PROVIDER_ACTION_CHOICES, {"default": "none"}),
+                "provider_name": ("STRING", {
+                    "default": "",
+                    "placeholder": "Provider 名称（保存/删除用，如 DeepSeek）",
+                }),
+                "base_url": ("STRING", {
+                    "default": "",
+                    "placeholder": "https://api.deepseek.com/v1（以 /v1 结尾）",
+                }),
+                "api_key": ("STRING", {
+                    "default": "",
+                    "multiline": False,
+                    "placeholder": "sk-xxxx（保存后写入 providers.json）",
+                }),
+                "chat_model": ("STRING", {
+                    "default": "",
+                    "placeholder": "gpt-4o / deepseek-chat / Qwen/Qwen3-235B-A22B",
+                }),
+                "vision_model": ("STRING", {
+                    "default": "",
+                    "placeholder": "gpt-4o / qwen-vl-max（看图用，留空=chat_model）",
+                }),
             },
         }
 
@@ -78,10 +115,18 @@ class PromptOptimizerNode:
 
     def process(self, text, mode="optimize", model_type="auto", target_model="",
                 image=None, max_images=1, skill="none", provider="", language="zh",
-                max_tokens=2048, temperature=0.7):
+                max_tokens=2048, temperature=0.7,
+                provider_action="none", provider_name="", base_url="",
+                api_key="", chat_model="", vision_model=""):
         text = str(text or "").strip()
         mode = str(mode or "optimize")
         skill_id = str(skill or "none")
+
+        # ---- 处理 Provider 配置动作（写回 providers.json，持久化）----
+        config_log = _handle_provider_action(
+            provider_action, provider, provider_name,
+            base_url, api_key, chat_model, vision_model,
+        )
 
         # ---- 确定适配器类型 ----
         adapter_id = str(model_type or "auto")
@@ -164,7 +209,39 @@ class PromptOptimizerNode:
         if not caption and not positive:
             positive = text or ""
 
+        if config_log:
+            raw = (config_log + "\n" + raw).strip()
+
         return (positive, negative, caption, raw.strip())
+
+
+def _handle_provider_action(action, provider, provider_name, base_url,
+                            api_key, chat_model, vision_model):
+    """
+    处理节点上的 provider 配置动作，写回 providers.json（持久化）。
+    返回操作日志字符串；无操作时返回 ""。
+    """
+    action = str(action or "none")
+    if action == "none":
+        return ""
+
+    try:
+        if action == "save":
+            # 未填 provider_name 时沿用当前下拉选中的 provider（更新场景）
+            name = (provider_name or "").strip() or (provider or "").strip()
+            _, log = api_client.save_provider(
+                name, base_url, api_key, chat_model, vision_model)
+            return f"【配置】{log}\n（已写入 providers.json，重启不丢失；下拉列表已动态刷新）"
+        if action == "delete":
+            name = (provider_name or "").strip() or (provider or "").strip()
+            log = api_client.delete_provider(name)
+            return f"【配置】{log}"
+        if action == "reload":
+            api_client.load_providers(force=True)
+            return f"【配置】已强制重载 providers.json，当前可用: {', '.join(api_client.provider_names()) or '（空）'}"
+        return f"【配置】未知动作: {action}"
+    except Exception as exc:
+        return f"【配置操作失败】{exc}"
 
 
 def _split_positive_negative(result, adapter_id, language):
