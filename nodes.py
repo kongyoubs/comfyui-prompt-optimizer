@@ -8,7 +8,6 @@
     text          原始提示词
     mode          优化 / 反推 / 反推+优化
     model_type    auto / image / video / music（auto 按关键字自动识别）
-    target_model  可选：目标生图/视频/音乐模型名
     image         可选：IMAGE 张量（反推或多图参考，取前 N 张）
     max_images    最多取前几张图（1-8）
     skill         选择 skills/ 目录下的 skill（下拉，可自定义扩展）
@@ -37,21 +36,29 @@ from .core.adapters import get_adapter, auto_detect_adapter, ADAPTER_CHOICES
 
 
 # 常量列表（ComfyUI 下拉选项）
-MODE_CHOICES = ["optimize", "caption", "both"]
-MODEL_TYPE_CHOICES = [("auto", "自动识别"), *ADAPTER_CHOICES]
+# 注意：带显示名的选项用 [value, 显示名] list，不能用 tuple ——
+# ComfyUI 前端保存 combo 时序列化为数组，tuple 会导致后端 "Value not in list" 校验失败。
+MODE_CHOICES = [
+    ["optimize", "提示词优化"],
+    ["caption", "图像反推"],
+    ["both", "提示词优化和图像反推"],
+]
+# 注意：带显示名的选项用 [value, 显示名] list，不能用 tuple ——
+# ComfyUI 前端保存 combo 时序列化为数组，tuple 会导致后端 "Value not in list" 校验失败。
+MODEL_TYPE_CHOICES = [["auto", "自动识别"], *ADAPTER_CHOICES]
 LANGUAGE_CHOICES = [
-    ("zh", "中文"),
-    ("en", "英文"),
-    ("both", "中英双输出"),
+    ["zh", "中文"],
+    ["en", "英文"],
+    ["both", "中英双输出"],
 ]
 # skill 下拉：无 + 扫描 skills/ 目录得到的全部 skill
-SKILL_CHOICES = [("none", "不使用 skill")] + skill_loader.skill_choices()
+SKILL_CHOICES = [["none", "不使用 skill"]] + skill_loader.skill_choices()
 # provider 配置动作下拉（持久化到 providers.json）
 PROVIDER_ACTION_CHOICES = [
-    ("none", "无操作"),
-    ("save", "保存配置到文件"),
-    ("delete", "删除所选 provider"),
-    ("reload", "重载 providers.json"),
+    ["none", "无操作"],
+    ["save", "保存配置到文件"],
+    ["delete", "删除所选 provider"],
+    ["reload", "重载 providers.json"],
 ]
 
 
@@ -69,10 +76,6 @@ class PromptOptimizerNode:
                 "model_type": (MODEL_TYPE_CHOICES, {"default": "auto"}),
             },
             "optional": {
-                "target_model": ("STRING", {
-                    "default": "",
-                    "placeholder": "可选：FLUX.1-dev / Wan2.1 / MusicGen / Qwen-Image…",
-                }),
                 "image": ("IMAGE",),
                 "max_images": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1}),
                 "skill": (SKILL_CHOICES, {"default": "none"}),
@@ -109,18 +112,24 @@ class PromptOptimizerNode:
         }
 
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("positive", "negative", "caption", "raw")
+    RETURN_NAMES = ("正向提示词", "反向提示词", "图像反推", "原始输出")
     FUNCTION = "process"
     CATEGORY = "Prompt Optimizer"
 
-    def process(self, text, mode="optimize", model_type="auto", target_model="",
+    def process(self, text, mode="optimize", model_type="auto",
                 image=None, max_images=1, skill="none", provider="", language="zh",
                 max_tokens=2048, temperature=0.7,
                 provider_action="none", provider_name="", base_url="",
                 api_key="", chat_model="", vision_model=""):
         text = str(text or "").strip()
-        mode = str(mode or "optimize")
-        skill_id = str(skill or "none")
+        # ComfyUI 前端把 combo 选中项序列化为 [value, 显示名] 数组传给节点，
+        # 这里统一规范化为字符串（字符串输入原样通过）。
+        mode = _combo_value(mode, "optimize")
+        model_type = _combo_value(model_type, "auto")
+        skill_id = _combo_value(skill, "none")
+        language = _combo_value(language, "zh")
+        provider = _combo_value(provider, "")
+        provider_action = _combo_value(provider_action, "none")
 
         # ---- 处理 Provider 配置动作（写回 providers.json，持久化）----
         config_log = _handle_provider_action(
@@ -171,7 +180,7 @@ class PromptOptimizerNode:
             if not data_urls:
                 raise RuntimeError("反推模式需要连接 image 输入（IMAGE 张量）")
             cap_adapter = get_adapter("caption", language=language)
-            sys_p, user_content = cap_adapter.build_messages(text, target_model, data_urls)
+            sys_p, user_content = cap_adapter.build_messages(text, data_urls=data_urls)
             # caption 类型 skill 的规则注入到反推分支（否则在纯 caption 模式下会被忽略）
             if skill_type == "caption" and skill_rules:
                 sys_p = f"{sys_p}\n\n【必须遵循以下 skill 规则生成描述】\n\n{skill_rules}"
@@ -184,11 +193,16 @@ class PromptOptimizerNode:
                 temperature=temperature,
             )
             raw += f"【反推】\n{caption}\n"
+            # 反推结果同时输出到 positive（README 输出表约定：caption 模式下
+            # positive = 图片反推描述），便于直接接入文生图提示词链路；
+            # mode=both 时会被后面的优化结果覆盖。
+            if not positive:
+                positive = caption
 
         # ---- 优化：用 LLM 优化提示词 ----
         if need_optimize:
             adapter = get_adapter(adapter_id, language=language)
-            sys_p, user_content = adapter.build_messages(text, target_model, data_urls)
+            sys_p, user_content = adapter.build_messages(text, data_urls=data_urls)
             # 注入 skill 规则：把 skill 内容追加到 system prompt
             if skill_rules:
                 sys_p = f"{sys_p}\n\n【必须遵循以下 skill 规则生成提示词】\n\n{skill_rules}"
@@ -213,6 +227,16 @@ class PromptOptimizerNode:
             raw = (config_log + "\n" + raw).strip()
 
         return (positive, negative, caption, raw.strip())
+
+
+def _combo_value(v, default=""):
+    """ComfyUI 前端把 combo 选中项序列化为 [value, 显示名] 数组传给节点函数，
+    这里统一取第一项字符串；纯字符串输入原样返回。"""
+    if isinstance(v, (list, tuple)):
+        return str(v[0]) if v and v[0] is not None else default
+    if v is None:
+        return default
+    return str(v)
 
 
 def _handle_provider_action(action, provider, provider_name, base_url,

@@ -94,7 +94,6 @@ ComfyUI/custom_nodes/comfyui-prompt-optimizer/
 | `text` | 原始提示词 / 修改指令（编辑时） |
 | `mode` | `optimize` 优化 / `caption` 反推 / `both` 反推+优化 |
 | `model_type` | `auto` 自动识别 / `image` / `video` / `music` / `caption` / `edit` |
-| `target_model` | 可选：目标模型名（FLUX.1-dev、Wan2.1、MusicGen…） |
 | `image` | 可选 IMAGE 输入（反推/编辑用，最多 8 张） |
 | `max_images` | 取前几张图（1-8） |
 | `skill` | 选择 `skills/` 目录下的 skill（34 个内置，可自定义扩展） |

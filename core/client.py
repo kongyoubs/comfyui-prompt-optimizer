@@ -99,6 +99,14 @@ def save_provider(name, base_url, api_key, chat_model="", vision_model=""):
         raise RuntimeError("base_url 不能为空（例如 https://api.deepseek.com/v1）")
     if not api_key:
         raise RuntimeError("api_key 不能为空")
+    # 非 ASCII 占位符/中文会进 HTTP 请求头，urllib3 做 latin-1 编码时崩溃
+    # （UnicodeEncodeError），这里提前给出明确报错
+    for field, label in ((base_url, "base_url"), (api_key, "api_key")):
+        if any(ord(c) > 127 for c in field):
+            raise RuntimeError(
+                f"{label} 含有非 ASCII 字符（可能是未填写的占位符，如「在此填入你的key」），"
+                f"请填写真实内容后再保存"
+            )
     if not chat_model:
         chat_model = "gpt-4o"
     if not vision_model:
@@ -242,6 +250,17 @@ def _chat_once(provider, messages, *, model_type, max_tokens, temperature,
         raise RuntimeError(f"provider [{provider.get('name')}] 缺少 base_url")
     if not api_key:
         raise RuntimeError(f"provider [{provider.get('name')}] 缺少 api_key")
+    # 非 ASCII（中文占位符等）会进 HTTP 请求头导致 urllib3 latin-1 编码崩溃，
+    # 提前给出明确报错
+    if any(ord(c) > 127 for c in api_key):
+        raise RuntimeError(
+            f"provider [{provider.get('name')}] 的 api_key 含有非 ASCII 字符"
+            f"（可能是未填写的占位符），请编辑 providers.json 填写真实密钥"
+        )
+    if any(ord(c) > 127 for c in base_url):
+        raise RuntimeError(
+            f"provider [{provider.get('name')}] 的 base_url 含有非 ASCII 字符，请检查地址"
+        )
 
     url = f"{base_url}/chat/completions"
     headers = {

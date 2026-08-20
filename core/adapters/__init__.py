@@ -15,13 +15,16 @@ ADAPTERS = {
     "edit": EditAdapter,
 }
 
-#: 节点下拉显示名 -> id
+#: 节点下拉选项（[value, 显示名]）。
+#: 注意：必须用 list 而不是 tuple —— ComfyUI 前端保存 combo 时会把选中项序列化为
+#: [value, 显示名] 数组存进工作流，后端校验用 `val in combo_options` 做相等比较，
+#: list 与 tuple 不相等会导致 "Value not in list" 校验失败（execution.py）。
 ADAPTER_CHOICES = [
-    ("image", "生图优化"),
-    ("video", "生视频优化"),
-    ("music", "音乐优化"),
-    ("caption", "图像反推"),
-    ("edit", "图像编辑"),
+    ["image", "生图优化"],
+    ["video", "生视频优化"],
+    ["music", "音乐优化"],
+    ["caption", "图像反推"],
+    ["edit", "图像编辑"],
 ]
 
 #: 自动识别关键字（文本出现时优先匹配的适配器）

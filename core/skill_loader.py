@@ -118,8 +118,12 @@ def get_skill(skill_id):
 
 
 def skill_choices():
-    """返回节点下拉用的 [(id, 显示名)] 列表。"""
-    return [(s["id"], s["name"]) for s in scan_skills()]
+    """返回节点下拉用的 [[id, 显示名]] 列表。
+
+    必须用 list 而不是 tuple（ComfyUI 前端会把 combo 选中项序列化为
+    [value, 显示名] 数组，元组会导致后端 "Value not in list" 校验失败）。
+    """
+    return [[s["id"], s["name"]] for s in scan_skills()]
 
 
 def skill_types():
